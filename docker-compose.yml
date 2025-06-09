@@ -1,0 +1,15 @@
+services:
+  web:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - './app:/app'
+    ports:
+      - "7726:${SERVICE_PORT}"
+    command: [ "air", "-c", ".air.toml" ]
+#    extra_hosts:
+#      - 'postgresql:${POSTGRESQL_IP}'
+    restart: on-failure
