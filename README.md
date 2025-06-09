@@ -1,77 +1,56 @@
 # IKV – Inkventory Service
 
-> **Inkventory** là pet‑project Go theo kiểu **Modular Monolith** nhưng tuân thủ structure bạn yêu cầu: `modules/<name>/infras/controller/...`, *không* đổi sang api/core/adapter.
-> Database mặc định **PostgreSQL 16** sử dụng **GORM**.
+> **Inkventory** là pet‑project Go mô hình **Modular Monolith** (tách module, sẵn sàng thành micro‑service).
+>
+> • CSDL mặc định **PostgreSQL 16 + GORM**.
 
 ---
 
-## 🎯 Mục tiêu
-
-* Thực hành Go với kiến trúc tách tầng rõ ràng nhưng quen thuộc: **model → service → infras**.
-* Dễ tách 1 module thành micro‑service khi cần (giữ `controller` & `repository` sẵn).
-* Tài liệu 100 % tiếng Việt, chỉ chừa thuật ngữ bắt buộc.
-
----
-
-## 🏗️ Cấu trúc thư mục tổng quát
+## 📂 Cây thư mục chính
 
 ```text
 ikv/
-├── go.work                      # gom sub‑module Go
-├── build/                       # Dockerfile, script CI
-├── docker-compose.yml           # Postgres, NATS, Jaeger, Adminer, ikv
-├── shared/                      # logger, config, errors, eventbus
-│   └── go.mod
-├── modules/
-│   ├── category/                # ví dụ module cụ thể (ảnh bạn gửi)
-│   │   ├── module.go            # function NewModule() đăng ký DI
-│   │   ├── model/               # entity + DTO + error
-│   │   │   ├── category.go
-│   │   │   ├── dto.go
-│   │   │   └── error.go
-│   │   ├── service/             # business logic
-│   │   │   ├── service.go
-│   │   │   ├── create_new_category.go
-│   │   │   ├── update_category_by_id.go
-│   │   │   └── ...
-│   │   └── infras/
-│   │       ├── repository/      # implement bằng GORM (PostgreSQL)
-│   │       │   └── category_repo_gorm.go
-│   │       └── controller/      # cổng giao tiếp
-│   │           ├── http-gin/    # REST handler
-│   │           │   └── handler_category.go
-│   │           └── grpcctl/     # gRPC server & client stub
-│   │               ├── category.proto
-│   │               └── server.go
-│   ├── inventory/               # module quản lý kho (tự xây tương tự)
-│   ├── ordering/
-│   ├── customer/
-│   └── pricing/
-├── cmd/
-│   ├── api-gateway/             # tập hợp route HTTP, gRPC gateway, DI
-│   ├── worker/                  # chạy background job
-│   └── migrate/                 # golang‑migrate runner
-└── README.md
+├── app/                       # <–– toàn bộ mã nguồn Go đặt trong đây
+│   ├── go.work               # gom các module con
+│   ├── shared/               # logger, config, errors, eventbus
+│   │   └── go.mod
+│   ├── modules/              # mỗi bounded‑context 1 thư mục
+│   │   ├── category/
+│   │   │   ├── module.go
+│   │   │   ├── model/
+│   │   │   ├── service/
+│   │   │   └── infras/
+│   │   │       ├── repository/
+│   │   │       └── controller/
+│   │   ├── inventory/
+│   │   ├── ordering/
+│   │   └── customer/
+│   └── cmd/
+│       ├── api-gateway/      # gom route HTTP/gRPC
+│       ├── worker/           # job nền
+│       └── migrate/          # migration runner
+├── build/
+│   └── Dockerfile            # image multi‑stage build
+├── docs/
+│   └── flow.png              # sơ đồ kiến trúc/png khác
+├── vendor/                   # (tuỳ chọn) module vendoring
+├── docker-compose.yml        # Postgres, NATS, Jaeger, Adminer, ikv
+├── Dockerfile                # root image tiện CI
+├── LICENSE
+└── README.md                 # bạn đang đọc
 ```
-
-> **Key point:**
-> *`controller`* = cổng (HTTP/gRPC), *`repository`* = adapter dữ liệu. Tất cả nằm trong `infras` để tách khỏi business.
 
 ---
 
-## 🔄 Luồng phụ thuộc
+## 🔄 Luồng phụ thuộc trong 1 module
 
 ```
- model  ←── service  ←── repository (infras)  → PostgreSQL
+ model  ←── service  ←── infras/repository (GORM Postgres)
                         ↑
-                      controller (HTTP / gRPC)
+                   infras/controller (HTTP / gRPC)
 ```
 
-* Model & Service **không** import `Gin`, `GORM`.
-* Service chỉ depends vào **interface** `CategoryRepository` đặt trong `service` (hoặc `model`).
-* `repository/category_repo_gorm.go` implements interface, dùng GORM Postgres.
-
----
+Không module nào được import trực tiếp code của module khác; chỉ giao tiếp qua **interface** repository/service hoặc eventbus.
 
 ## 🔍 Sơ đồ tổng thể (Mermaid)
 
@@ -94,88 +73,57 @@ graph TD
 ![flow](./docs/flow.png)
 ---
 
-## 📅 Lộ trình triển khai
-
-| Sprint | Mục tiêu                           | Việc cần làm                                                                      |
-| ------ | ---------------------------------- | --------------------------------------------------------------------------------- |
-| **0**  | Bootstrapping                      | `go.work init`; tạo `shared`, cấu hình Postgres trong docker‑compose; viết `.env` |
-| **1**  | Category MVP                       | Schema `categories`; repo GORM; service CRUD; HTTP `GET /v1/categories`           |
-| **2**  | Inventory                          | mô hình `books`, validate stock; controller HTTP + repo                           |
-| **3**  | Ordering                           | TX giảm stock; publish event qua `shared/eventbus`                                |
-| **4**  | Observability & CI                 | Jaeger, Prometheus, GitLab CI chạy `go test`, lint, build image                   |
-| **5**  | Xuất Inventory thành micro‑service | tạo repo mới, copy module, đổi DI trong gateway thành client gRPC                 |
-
----
-
-## ⚙️ Cấu hình Postgres + GORM
-
-```yaml
-db:
-  image: postgres:16-alpine
-  environment:
-    POSTGRES_USER: ikv
-    POSTGRES_PASSWORD: ikv123
-    POSTGRES_DB: ikv
-  ports: ["5432:5432"]
-  volumes:
-    - pgdata:/var/lib/postgresql/data
-```
-
-```env
-DB_DSN=postgres://ikv:ikv123@db:5432/ikv?sslmode=disable
-```
-
-Trong code:
-
-```go
-import (
-    "gorm.io/driver/postgres"
-    "gorm.io/gorm"
-)
-
-db, err := gorm.Open(postgres.Open(cfg.DB_DSN), &gorm.Config{})
-```
-
----
-
-## 🔧 Chạy dev
+## 🛠️ Thiết lập nhanh
 
 ```bash
+# 1. Copy sample env
 cp env.example .env
-make dev            # docker-compose up -d db nats jaeger
 
-# gateway
-cd cmd/api-gateway
+# 2. Khởi động stack dev (Postgres, Jaeger, ...)
+docker-compose up -d
+
+# 3. Chạy migration & gateway
+go run ./app/cmd/migrate
+cd app/cmd/api-gateway
 go run .
 ```
 
-Migration SQL tự động (cmd/migrate).
+DSLN Postgres (.env):
 
----
-
-## 🧪 Kiểm thử
-
-```bash
-go test ./...
+```
+DB_DSN=postgres://ikv:ikv123@localhost:5432/ikv?sslmode=disable
 ```
 
-* Unit: mock `CategoryRepository` bằng `testify/mock`.
-* Integration: docker‑compose, gọi HTTP.
+---
+
+## 🗺️ Roadmap ngắn
+
+| Sprint | Mục tiêu           | Tasks                                                  |
+| ------ | ------------------ | ------------------------------------------------------ |
+| 0      | Scaffold           | `go.work init`, cấu hình Postgres trong docker‑compose |
+| 1      | Category CRUD      | Repo GORM, Service, HTTP `GET/POST /v1/categories`     |
+| 2      | Inventory          | Stock CRUD, low‑stock worker                           |
+| 3      | Ordering           | TX giảm stock, sự kiện OrderPlaced                     |
+| 4      | Observability & CI | Jaeger, Prometheus, GitLab CI                          |
+| 5      | Split Inventory    | Tách repo, viết client gRPC                            |
 
 ---
 
-## 🤝 Quy trình đóng góp
+## ☑️ Kiểm thử
 
-1. Nhánh `feat/XYZ` ↔ Git flow.
-2. `make test lint` bắt buộc pass.
-3. PR: đảm bảo module chỉ import `infras/controller` & `infras/repository` trong **chính nó** – không cross import.
+```bash
+go test ./app/...
+```
+
+* Unit test: mock repository.
+* Integration: docker‑compose + gọi HTTP.
 
 ---
 
-## 📄 License
+## 📜 License
 
 MIT
 
 ---
 
-> **Inkventory – quản lý kho sách, gọn nhẹ và có thể tách dịch vụ bất cứ lúc nào.**
+> **Inkventory – quản lý kho sách, sẵn sàng mở rộng.**
