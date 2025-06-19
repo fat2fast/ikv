@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     volumes:
-      - './app:/app'
+      - './app:/app:delegated'
     ports:
       - "7726:${SERVICE_PORT}"
     command: [ "air", "-c", ".air.toml" ]

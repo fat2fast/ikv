@@ -1,0 +1,33 @@
+# Basic Module Configuration
+module:
+  name: "book"
+  version: "1.0.0"
+  enabled: true
+  description: "Book management module"
+  
+# Database Configuration (PostgreSQL)
+database:
+  # Connection details (load từ env nhưng giữ chi tiết)
+  connection:
+    driver: "${MODULE_BOOK_DB_DRIVER:postgres}"
+    host: "${MODULE_BOOK_DB_HOST:localhost}"
+    port: "${MODULE_BOOK_DB_PORT:5432}"
+    database: "${MODULE_BOOK_DB_NAME:ikv_book}"
+    username: "${MODULE_BOOK_DB_USER:ikv_user}"
+    password: "${MODULE_BOOK_DB_PASSWORD:ikv_password}"
+    schema: "${MODULE_BOOK_DB_SCHEMA:book_schema}"
+    auto_create: ${MODULE_BOOK_DB_AUTO_CREATE:true}
+    ssl_mode: "${MODULE_BOOK_DB_SSL_MODE:disable}"
+    timezone: "${MODULE_BOOK_DB_TIMEZONE:Asia/Ho_Chi_Minh}"
+  
+  # Migration settings
+  migration:
+    path: "${MODULE_BOOK_MIGRATION_PATH:/app/modules/book/migrations}"
+    table: "${MODULE_BOOK_MIGRATION_TABLE:book_migrations}"
+    schema: "${MODULE_BOOK_MIGRATION_SCHEMA:public}"
+    
+  # Performance settings
+  performance:
+    max_open_conns: ${MODULE_BOOK_DB_MAX_OPEN_CONNS:10}
+    max_idle_conns: ${MODULE_BOOK_DB_MAX_IDLE_CONNS:2}
+    conn_max_lifetime: "${MODULE_BOOK_DB_CONN_MAX_LIFETIME:5m}" 

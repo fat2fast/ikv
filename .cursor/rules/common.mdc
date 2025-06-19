@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Đường dẫn import sẽ là "{project_name}/{package}" 
+ví dụ : "fat2fast/ikv/shared" , "fat2fast/ikv/modules/book" thay vì "github.com/fat2fast/ikv/app/shared"
+- Các module cần được độc lập về mặt config db , migration ...

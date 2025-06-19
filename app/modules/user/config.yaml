@@ -1,0 +1,33 @@
+# Basic Module Configuration
+module:
+  name: "user"
+  version: "1.0.0"
+  enabled: true
+  description: "User management module"
+  
+# Database Configuration (PostgreSQL)
+database:
+  # Connection details (load từ env nhưng giữ chi tiết)
+  connection:
+    driver: "${MODULE_USER_DB_DRIVER:postgres}"
+    host: "${MODULE_USER_DB_HOST:localhost}"
+    port: "${MODULE_USER_DB_PORT:5432}"
+    database: "${MODULE_USER_DB_NAME:ikv_user}"
+    username: "${MODULE_USER_DB_USER:ikv_user}"
+    password: "${MODULE_USER_DB_PASSWORD:ikv_password}"
+    schema: "${MODULE_USER_DB_SCHEMA:user_schema}"
+    auto_create: ${MODULE_USER_DB_AUTO_CREATE:true}
+    ssl_mode: "${MODULE_USER_DB_SSL_MODE:disable}"
+    timezone: "${MODULE_USER_DB_TIMEZONE:Asia/Ho_Chi_Minh}"
+  
+  # Migration settings
+  migration:
+    path: "${MODULE_USER_MIGRATION_PATH:/app/modules/user/migrations}"
+    table: "${MODULE_USER_MIGRATION_TABLE:user_migrations}"
+    schema: "${MODULE_USER_MIGRATION_SCHEMA:public}"
+    
+  # Performance settings
+  performance:
+    max_open_conns: ${MODULE_USER_DB_MAX_OPEN_CONNS:10}
+    max_idle_conns: ${MODULE_USER_DB_MAX_IDLE_CONNS:2}
+    conn_max_lifetime: "${MODULE_USER_DB_CONN_MAX_LIFETIME:5m}" 
