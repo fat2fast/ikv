@@ -16,8 +16,16 @@ RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate
 #ENV PATH $PATH:/go/bin:$GOPATH/bin
 #ENV CGO_ENABLED 0
 
+COPY build/wait-for-it.sh /usr/local/bin/wait-for-it.sh
+COPY build/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/wait-for-it.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 RUN go mod download
 
-CMD ["air", "-c", ".air.toml"]
+# wait-for-it.sh $MEB_HOST:$MEB_PORT --strict --timeout=5 -- echo "Service Bus is up"
+CMD ["docker-entrypoint.sh", "--", "air", "-c", ".air.toml"]
+
+#CMD ["air", "-c", ".air.toml"]
 #ENTRYPOINT ["./main"]
 

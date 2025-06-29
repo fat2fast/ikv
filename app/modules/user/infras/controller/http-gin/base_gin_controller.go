@@ -5,19 +5,26 @@ import (
 
 	usermodel "fat2fast/ikv/modules/user/model"
 	usersevice "fat2fast/ikv/modules/user/service"
-
-	"github.com/google/uuid"
 )
 
 type ICreateCommandHandler interface {
-	Execute(ctx context.Context, cmd *usersevice.CreateCommand) (*uuid.UUID, error)
+	Execute(ctx context.Context, cmd *usersevice.CreateCommand) (*usermodel.RegisterResponse, error)
 }
-type IDetailQueryHandler interface {
-	Execute(ctx context.Context, query *usersevice.GetDetailsQuery) (*usermodel.User, error)
+type IAuthenticateCommandHandler interface {
+	Execute(ctx context.Context, cmd *usersevice.AuthenticateCommand) (*usersevice.AuthenticateResult, error)
 }
+type IGetProfileQueryHandler interface {
+	Execute(ctx context.Context, query *usersevice.GetProfileQuery) (*usermodel.ProfileResponse, error)
+}
+type IUpdateProfileCommandHandler interface {
+	Execute(ctx context.Context, cmd *usersevice.UpdateProfileCommand) error
+}
+
 type UserHTTPController struct {
-	createCmdHdl    ICreateCommandHandler
-	getDetailQryHdl IDetailQueryHandler
+	createCmdHdl        ICreateCommandHandler
+	authenticateCmdHdl  IAuthenticateCommandHandler
+	getProfileQryHdl    IGetProfileQueryHandler
+	updateProfileCmdHdl IUpdateProfileCommandHandler
 	// updateCmdHdl    IUpdateByIdCommandHandler
 	// deleteCmdHdl    IDeleteByIdCommandHandler
 	// listQryHdl      IListQueryHandler
@@ -25,15 +32,19 @@ type UserHTTPController struct {
 
 func NewUserHTTPController(
 	createCmdHdl ICreateCommandHandler,
-	getDetailQryHdl IDetailQueryHandler,
+	authenticateCmdHdl IAuthenticateCommandHandler,
+	getProfileQryHdl IGetProfileQueryHandler,
+	updateProfileCmdHdl IUpdateProfileCommandHandler,
 	// updateCmdHdl IUpdateByIdCommandHandler,
 	// deleteCmdHdl IDeleteByIdCommandHandler,
 	// listQryHdl IListQueryHandler,
 	// repoRPCCategory IRepoRPCCategory,
 ) *UserHTTPController {
 	return &UserHTTPController{
-		getDetailQryHdl: getDetailQryHdl,
-		createCmdHdl:    createCmdHdl,
+		createCmdHdl:        createCmdHdl,
+		authenticateCmdHdl:  authenticateCmdHdl,
+		getProfileQryHdl:    getProfileQryHdl,
+		updateProfileCmdHdl: updateProfileCmdHdl,
 		// updateCmdHdl:    updateCmdHdl,
 		// deleteCmdHdl:    deleteCmdHdl,
 		// listQryHdl:      listQryHdl,

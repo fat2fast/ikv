@@ -9,7 +9,22 @@ services:
       - './app:/app:delegated'
     ports:
       - "7726:${SERVICE_PORT}"
-    command: [ "air", "-c", ".air.toml" ]
+    command: ["/bin/sh", "-c", "docker-entrypoint.sh && air -c .air.toml"]
 #    extra_hosts:
 #      - 'postgresql:${POSTGRESQL_IP}'
+    restart: on-failure
+  opa:
+    image: openpolicyagent/opa:latest
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--bundle"
+      - "/bundles/bundle.tar.gz"
+      - "--watch"
+    volumes:
+      - ./opa/bundles/:/bundles/:rw
+      - ./opa/policies/:/policies/:rw
+    ports:
+      - "8181:8181"
     restart: on-failure

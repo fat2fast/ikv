@@ -13,29 +13,24 @@ func GetRoutes(controller *userhttpgin.UserHTTPController) []gin.RouteInfo {
 
 	return []gin.RouteInfo{
 		{
-			Method:      http.MethodGet,
-			Path:        "",
-			HandlerFunc: controller.ActionGetList,
-		},
-		{
-			Method:      http.MethodGet,
-			Path:        "/:id",
-			HandlerFunc: controller.ActionGetDetail,
+			Method:      http.MethodPost,
+			Path:        "/authenticate",
+			HandlerFunc: controller.ActionAuthenticate,
 		},
 		{
 			Method:      http.MethodPost,
-			Path:        "",
-			HandlerFunc: controller.ActionCreate,
+			Path:        "/register",
+			HandlerFunc: controller.ActionRegister,
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/profile/:id",
+			HandlerFunc: controller.ActionGetProfile,
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/:id",
-			HandlerFunc: controller.ActionUpdate,
-		},
-		{
-			Method:      http.MethodDelete,
-			Path:        "/:id",
-			HandlerFunc: controller.ActionDelete,
+			Path:        "/profile/:id",
+			HandlerFunc: controller.ActionUpdateProfile,
 		},
 	}
 }

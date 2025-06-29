@@ -3,8 +3,6 @@ package shared
 import (
 	"net/http"
 
-	bookv1 "fat2fast/ikv/modules/book/urls/v1"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,9 +52,9 @@ func ActionPing(c *gin.Context) {
 func GetUrl() []gin.RouteInfo {
 	// Tạo registry
 	registry := NewRouteRegistry()
-	groupV1 := "v1"
+	// groupV1 := "v1"
 	// registry.Register(groupV1+"/user", userv1.GetRoutes)
-	registry.Register(groupV1+"/book", bookv1.GetRoutes)
+	// registry.Register(groupV1+"/book", bookv1.GetRoutes)
 
 	// Lấy tất cả routes
 	allRoutes := registry.GetAllRoutes()

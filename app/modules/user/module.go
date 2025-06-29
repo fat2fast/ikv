@@ -3,6 +3,7 @@ package user
 import (
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -12,7 +13,9 @@ import (
 	userservice "fat2fast/ikv/modules/user/service"
 	userurlv1 "fat2fast/ikv/modules/user/urls/v1"
 	"fat2fast/ikv/shared"
+	sharecomponent "fat2fast/ikv/shared/component"
 	sharedinfras "fat2fast/ikv/shared/infras"
+	"fat2fast/ikv/shared/middleware"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -82,11 +85,22 @@ func NewModule() (*Module, error) {
 
 	// Kết nối database nếu module được kích hoạt
 	if module.IsEnabled() {
-		db, err := module.connectDatabase()
+		// retry 5 times
+		var db *gorm.DB
+		var err error
+		for i := 0; i < 5; i++ {
+			db, err = module.connectDatabase()
+			if err == nil {
+				break
+			}
+			log.Printf("Error connecting to database: %v, retrying ... waiting 5 seconds", err)
+			time.Sleep(5 * time.Second)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("error connecting to database: %v", err)
+		} else {
+			module.DB = db
 		}
-		module.DB = db
 	}
 
 	return module, nil
@@ -163,6 +177,8 @@ func (m *Module) Register(router *gin.Engine) error {
 	controller := Initialize(appCtx)
 	routes := userurlv1.GetRoutes(controller)
 	log.Printf("Registering module routes")
+	router.Use(middleware.RecoverMiddleware())
+	log.Printf("Registering RecoverMiddleware")
 	v1 := router.Group("/v1")
 	userV1 := v1.Group("/users")
 
@@ -200,14 +216,28 @@ func Initialize(appCtx sharedinfras.IAppContext) *userhttpgin.UserHTTPController
 	dbCtx := appCtx.DbContext()
 
 	userRepository := userrepository.NewUserRepository(dbCtx)
+	// set jwt private key from env and exp in 7 days
+	jwtComp := sharecomponent.NewJwtComp(os.Getenv("JWT_SECRET_KEY"), 60*60*24*7)
+
+	// Command handlers
+	authenticateCmdHdl := userservice.NewAuthenticateCommandHandler(userRepository, jwtComp)
 	createCommandHandler := userservice.NewCreateCommandHandler(userRepository)
-	getDetailsQueryHandler := userservice.NewGetDetailsQueryHandler(userRepository)
+	updateProfileCmdHdl := userservice.NewUpdateProfileCommandHandler(userRepository)
+
+	// Query handlers
+	getProfileQryHdl := userservice.NewGetProfileQueryHandler(userRepository)
+
 	// listQueryHandler := userservice.NewListQueryHandler(userRepository)
 	// updateCommandHandler := userservice.NewUpdateCommandHandler(userRepository)
 	// deleteCommandHandler := userservice.NewDeleteCommandHandler(userRepository)
 	// categoryRPCClient := rpcclient.NewCategoryRPCClient(appCtx.GetConfig().CategoryServiceURL)
 	// categoryGRPCClient := categorygrpcclient.NewCategoryRPCClient("0.0.0.0:6000")
 
-	userHTTPController := userhttpgin.NewUserHTTPController(createCommandHandler, getDetailsQueryHandler /* , updateCommandHandler, deleteCommandHandler, listQueryHandler */)
+	userHTTPController := userhttpgin.NewUserHTTPController(
+		createCommandHandler,
+		authenticateCmdHdl,
+		getProfileQryHdl,
+		updateProfileCmdHdl,
+		/* updateCommandHandler, deleteCommandHandler, listQueryHandler */)
 	return userHTTPController
 }

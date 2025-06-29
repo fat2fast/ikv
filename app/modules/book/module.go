@@ -8,6 +8,13 @@ import (
 	"time"
 
 	"fat2fast/ikv/shared"
+	sharedinfras "fat2fast/ikv/shared/infras"
+	"fat2fast/ikv/shared/middleware"
+
+	bookhttpgin "fat2fast/ikv/modules/book/infras/controller/http-gin"
+	bookrepository "fat2fast/ikv/modules/book/infras/repository/gorm-pgsql"
+	bookservice "fat2fast/ikv/modules/book/service"
+	bookurlv1 "fat2fast/ikv/modules/book/urls/v1"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -77,11 +84,22 @@ func NewModule() (*Module, error) {
 
 	// Kết nối database nếu module được kích hoạt
 	if module.IsEnabled() {
-		db, err := module.connectDatabase()
+		// retry 5 times
+		var db *gorm.DB
+		var err error
+		for i := 0; i < 5; i++ {
+			db, err = module.connectDatabase()
+			if err == nil {
+				break
+			}
+			log.Printf("Error connecting to database: %v, retrying .. waiting 5 seconds", err)
+			time.Sleep(5 * time.Second)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("error connecting to database: %v", err)
+		} else {
+			module.DB = db
 		}
-		module.DB = db
 	}
 
 	return module, nil
@@ -153,8 +171,20 @@ func (m *Module) Register(router *gin.Engine) error {
 
 	log.Printf("Registering module: %s (v%s)", m.GetName(), m.config.Module.Version)
 
-	// Đăng ký routes và middleware sẽ được thêm vào ở giai đoạn sau
-	// Hiện tại chỉ đăng ký module cơ bản
+	// Dependency injection
+	controller := m.Initialize()
+	routes := bookurlv1.GetRoutes(controller)
+
+	log.Printf("Registering module routes")
+	router.Use(middleware.RecoverMiddleware())
+	log.Printf("Registering RecoverMiddleware")
+
+	v1 := router.Group("/v1")
+	bookV1 := v1.Group("/books")
+
+	for _, route := range routes {
+		bookV1.Handle(route.Method, route.Path, route.HandlerFunc)
+	}
 
 	return nil
 }
@@ -177,4 +207,33 @@ func (m *Module) GetConfig() Config {
 // GetDB trả về kết nối database của module
 func (m *Module) GetDB() *gorm.DB {
 	return m.DB
+}
+
+// Initialize khởi tạo và dependency injection cho module
+func (m *Module) Initialize() *bookhttpgin.BookHTTPController {
+	log.Printf("Initializing book module ")
+	dbCtx := sharedinfras.NewDbContext(m.DB)
+
+	// Repository
+	bookRepository := bookrepository.NewBookRepository(dbCtx)
+
+	// Command handlers
+	createCmdHandler := bookservice.NewCreateBookCommandHandler(bookRepository)
+	updateCmdHandler := bookservice.NewUpdateBookCommandHandler(bookRepository)
+	deleteCmdHandler := bookservice.NewDeleteBookCommandHandler(bookRepository)
+
+	// Query handlers
+	getDetailQryHandler := bookservice.NewGetBookDetailQueryHandler(bookRepository)
+	listQryHandler := bookservice.NewListBooksQueryHandler(bookRepository)
+
+	// HTTP Controller
+	bookHTTPController := bookhttpgin.NewBookHTTPController(
+		createCmdHandler,
+		updateCmdHandler,
+		deleteCmdHandler,
+		getDetailQryHandler,
+		listQryHandler,
+	)
+
+	return bookHTTPController
 }
